@@ -12,13 +12,9 @@
 
 #include <memory>
 
-namespace htferl {
-	class HTFERL {
+namespace htfe {
+	class HTFE {
 	public:
-		enum InputType {
-			_state = 0, _action = 1, _q = 2
-		};
-
 		struct LayerDesc {
 			int _width, _height;
 
@@ -38,8 +34,6 @@ namespace htferl {
 			float _gamma;
 			float _lateralScalar;
 
-			float _qWeight;
-
 			LayerDesc()
 				: _width(16), _height(16), _receptiveFieldRadius(4), _reconstructionRadius(4), _lateralConnectionRadius(4), _inhibitionRadius(4), _feedBackConnectionRadius(4),
 				_sparsity(3.01f / 81.0f), _dutyCycleDecay(0.01f),
@@ -47,10 +41,6 @@ namespace htferl {
 				_gamma(0.0f), _lateralScalar(0.5f)
 			{}
 		};
-
-		static float sigmoid(float x) {
-			return 1.0f / (1.0f + std::exp(-x));
-		}
 
 	private:
 		struct Layer {
@@ -87,50 +77,6 @@ namespace htferl {
 			cl::Image2D _visibleReconstructionPrev;
 		};
 
-		struct OutputConnection {
-			float _weight;
-			float _prevDeltaWeight;
-
-			OutputConnection()
-				: _prevDeltaWeight(0.0f)
-			{}
-		};
-
-		struct QNode {
-			float _output;
-			int _index;
-			
-			std::vector<OutputConnection> _connections;
-
-			QNode()
-				: _output(0.0f)
-			{}
-		};
-
-		struct ActionNode {
-			float _output;
-			float _maxOutput;
-			int _index;
-
-			std::vector<OutputConnection> _connections;
-
-			ActionNode()
-				: _output(0.0f), _maxOutput(0.0f)
-			{}
-		};
-
-		struct ReplaySample {
-			std::vector<float> _hiddenStates;
-
-			std::vector<float> _action;
-			std::vector<float> _maxAction;
-
-			float _q;
-			float _originalQ;
-
-			float _tdError;
-		};
-
 		int _inputWidth, _inputHeight;
 
 		std::vector<LayerDesc> _layerDescs;
@@ -146,26 +92,17 @@ namespace htferl {
 		cl::Kernel _layerUpdateQKernel;
 
 		std::vector<float> _input;
+		std::vector<float> _prediction;
 
-		std::vector<InputType> _inputTypes;
-
-		std::vector<ActionNode> _actionNodes;
-		std::vector<QNode> _qNodes;
-
-		float _prevValue;
-		float _nextQ;
-		
 		cl::Image2D _inputImage;
 		cl::Image2D _inputImagePrev;
 
-		std::list<ReplaySample> _replaySamples;
-
-		ReplaySample _constructionSample;
-
 	public:
-		void createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, int inputWidth, int inputHeight, const std::vector<LayerDesc> &layerDescs, const std::vector<InputType> &inputTypes, float minInitWeight, float maxInitWeight, std::mt19937 &generator);
+		void createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, int inputWidth, int inputHeight, const std::vector<LayerDesc> &layerDescs, float minInitWeight, float maxInitWeight, std::mt19937 &generator);
 	
-		void step(sys::ComputeSystem &cs, float reward, float qAlpha, float qGamma, float breakChance, float perturbationStdDev, float alphaQ, float alphaAction, float momentum, int maxReplaySamples, int numReplayIterations, int actionSampleCutoff, std::mt19937 &generator);
+		void activate(sys::ComputeSystem &cs);
+		void learn(sys::ComputeSystem &cs);
+		void stepEnd();
 
 		int getInputWidth() const {
 			return _inputWidth;
@@ -173,14 +110,6 @@ namespace htferl {
 
 		int getInputHeight() const {
 			return _inputHeight;
-		}
-
-		int getNumActions() const {
-			return _actionNodes.size();
-		}
-
-		int getNumQNodes() const {
-			return _qNodes.size();
 		}
 
 		const std::vector<LayerDesc> &getLayerDescs() const {
@@ -195,10 +124,14 @@ namespace htferl {
 			setInput(x + y * _inputWidth, value);
 		}
 
-		float getOutput(int i) const {
-			return _actionNodes[i]._output;
+		float getPrediction(int i) const {
+			return _prediction[i];
 		}
 
-		void exportStateData(sys::ComputeSystem &cs, std::vector<std::shared_ptr<sf::Image>> &images, unsigned long seed) const;
+		float getPrediction(int x, int y) const {
+			return getPrediction(x + y * _inputWidth);
+		}
+
+		void clearMemory(sys::ComputeSystem &cs);
 	};
 }
