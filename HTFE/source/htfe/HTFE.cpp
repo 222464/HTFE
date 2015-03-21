@@ -1,13 +1,28 @@
 #include "HTFE.h"
 
 #include <iostream>
+#include <time.h>
 
 using namespace htfe;
 
-void HTFE::createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, int inputWidth, int inputHeight, const std::vector<LayerDesc> &layerDescs, float minInitWeight, float maxInitWeight, std::mt19937 &generator) {
-	struct Uint2 {
-		unsigned int _x, _y;
-	};
+struct Uint2 {
+	unsigned int _x, _y;
+};
+
+struct Float2 {
+	float _x, _y;
+};
+
+struct Float4 {
+	float _x, _y, _z, _w;
+};
+
+struct Int2 {
+	int _x, _y;
+};
+	
+void HTFE::createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, int inputWidth, int inputHeight, const std::vector<LayerDesc> &layerDescs, float minInitWeight, float maxInitWeight) {
+	std::mt19937 generator(time(nullptr));
 
 	std::uniform_int_distribution<int> seedDist(0, 99999);
 
@@ -15,7 +30,7 @@ void HTFE::createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, in
 	_inputHeight = inputHeight;
 
 	_layerDescs = layerDescs;
-	
+
 	_layers.resize(_layerDescs.size());
 
 	cl::Kernel initializeLayerHiddenKernel = cl::Kernel(program.getProgram(), "initializeLayerHidden");
@@ -29,6 +44,23 @@ void HTFE::createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, in
 
 	_inputImage = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_FLOAT), _inputWidth, _inputHeight);
 	_inputImagePrev = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_FLOAT), _inputWidth, _inputHeight);
+
+	{
+		cl_uint4 clear = { 0, 0, 0, 0 };
+
+		cl::size_t<3> origin;
+		origin[0] = 0;
+		origin[1] = 0;
+		origin[2] = 0;
+
+		cl::size_t<3> region;
+		region[0] = _inputWidth;
+		region[1] = _inputHeight;
+		region[2] = 1;
+
+		cs.getQueue().enqueueFillImage(_inputImage, clear, origin, region);
+		cs.getQueue().enqueueFillImage(_inputImagePrev, clear, origin, region);
+	}
 
 	int prevWidth = _inputWidth;
 	int prevHeight = _inputHeight;
@@ -85,10 +117,13 @@ void HTFE::createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, in
 		initializeLayerHiddenKernel.setArg(index++, _layers[l]._feedForwardWeights);
 		initializeLayerHiddenKernel.setArg(index++, _layers[l]._hiddenBiases);
 		initializeLayerHiddenKernel.setArg(index++, _layers[l]._lateralWeights);
+		initializeLayerHiddenKernel.setArg(index++, _layers[l]._feedBackWeights);
 		initializeLayerHiddenKernel.setArg(index++, numFeedForwardWeights);
 		initializeLayerHiddenKernel.setArg(index++, numLateralWeights);
+		initializeLayerHiddenKernel.setArg(index++, numFeedBackWeights);
 		initializeLayerHiddenKernel.setArg(index++, initSeedHidden);
 		initializeLayerHiddenKernel.setArg(index++, _layerDescs[l]._sparsity);
+		initializeLayerHiddenKernel.setArg(index++, _layerDescs[l]._lateralScalar);
 		initializeLayerHiddenKernel.setArg(index++, minInitWeight);
 		initializeLayerHiddenKernel.setArg(index++, maxInitWeight);
 
@@ -102,6 +137,8 @@ void HTFE::createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, in
 
 		initializeLayerVisibleKernel.setArg(index++, _layers[l]._visibleBiases);
 		initializeLayerVisibleKernel.setArg(index++, _layers[l]._visibleReconstruction);
+		initializeLayerVisibleKernel.setArg(index++, _layers[l]._reconstructionWeights);
+		initializeLayerVisibleKernel.setArg(index++, numReconstructionWeights);
 		initializeLayerVisibleKernel.setArg(index++, initSeedVisible);
 		initializeLayerVisibleKernel.setArg(index++, minInitWeight);
 		initializeLayerVisibleKernel.setArg(index++, maxInitWeight);
@@ -250,15 +287,7 @@ void HTFE::createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, in
 	_layerVisibleWeightUpdateKernel = cl::Kernel(program.getProgram(), "layerVisibleWeightUpdate");
 }
 
-void HTFE::activate(sys::ComputeSystem &cs) {
-	struct Float2 {
-		float _x, _y;
-	};
-
-	struct Int2 {
-		int _x, _y;
-	};
-
+void HTFE::activate(sys::ComputeSystem &cs) {	
 	{
 		cl::size_t<3> origin;
 		origin[0] = 0;
@@ -310,10 +339,6 @@ void HTFE::activate(sys::ComputeSystem &cs) {
 		inputSizeMinusOneInv._x = 1.0f / (prevWidth - 1);
 		inputSizeMinusOneInv._y = 1.0f / (prevHeight - 1);
 
-		Int2 receptiveFieldRadius;
-		receptiveFieldRadius._x = _layerDescs[l]._receptiveFieldRadius;
-		receptiveFieldRadius._y = _layerDescs[l]._receptiveFieldRadius;
-
 		// -------------------------------- Activate --------------------------------
 
 		int index = 0;
@@ -330,7 +355,6 @@ void HTFE::activate(sys::ComputeSystem &cs) {
 		_layerHiddenFeedForwardActivateKernel.setArg(index++, inputSizeMinusOne);
 		_layerHiddenFeedForwardActivateKernel.setArg(index++, _layerDescs[l]._receptiveFieldRadius);
 		_layerHiddenFeedForwardActivateKernel.setArg(index++, _layerDescs[l]._lateralConnectionRadius);
-		_layerHiddenFeedForwardActivateKernel.setArg(index++, _layerDescs[l]._lateralScalar);
 
 		cs.getQueue().enqueueNDRangeKernel(_layerHiddenFeedForwardActivateKernel, cl::NullRange, cl::NDRange(_layerDescs[l]._width, _layerDescs[l]._height));
 
@@ -344,7 +368,7 @@ void HTFE::activate(sys::ComputeSystem &cs) {
 		_layerHiddenInhibitKernel.setArg(index++, layerSize);
 		_layerHiddenInhibitKernel.setArg(index++, _layerDescs[l]._inhibitionRadius);
 		_layerHiddenInhibitKernel.setArg(index++, localActivity);
-		_layerHiddenInhibitKernel.setArg(index++, _layerDescs[l]._dutyCycleDecay);
+		_layerHiddenInhibitKernel.setArg(index++, _layerDescs[l]._minDerivative);
 
 		cs.getQueue().enqueueNDRangeKernel(_layerHiddenInhibitKernel, cl::NullRange, cl::NDRange(_layerDescs[l]._width, _layerDescs[l]._height));
 
@@ -394,10 +418,6 @@ void HTFE::activate(sys::ComputeSystem &cs) {
 		Float2 inputSizeMinusOneInv;
 		inputSizeMinusOneInv._x = 1.0f / (prevWidth - 1);
 		inputSizeMinusOneInv._y = 1.0f / (prevHeight - 1);
-
-		Int2 receptiveFieldRadius;
-		receptiveFieldRadius._x = _layerDescs[l]._receptiveFieldRadius;
-		receptiveFieldRadius._y = _layerDescs[l]._receptiveFieldRadius;
 
 		Int2 nextSize;
 		Int2 nextSizeMinusOne;
@@ -454,7 +474,7 @@ void HTFE::activate(sys::ComputeSystem &cs) {
 		_layerHiddenInhibitKernel.setArg(index++, layerSize);
 		_layerHiddenInhibitKernel.setArg(index++, _layerDescs[l]._inhibitionRadius);
 		_layerHiddenInhibitKernel.setArg(index++, localActivity);
-		_layerHiddenInhibitKernel.setArg(index++, _layerDescs[l]._dutyCycleDecay);
+		_layerHiddenInhibitKernel.setArg(index++, _layerDescs[l]._minDerivative);
 
 		cs.getQueue().enqueueNDRangeKernel(_layerHiddenInhibitKernel, cl::NullRange, cl::NDRange(_layerDescs[l]._width, _layerDescs[l]._height));
 
@@ -492,18 +512,6 @@ void HTFE::activate(sys::ComputeSystem &cs) {
 }
 
 void HTFE::learn(sys::ComputeSystem &cs) {
-	struct Float2 {
-		float _x, _y;
-	};
-
-	struct Float4 {
-		float _x, _y, _z, _w;
-	};
-
-	struct Int2 {
-		int _x, _y;
-	};
-
 	// ------------------------------------------------------------------------------
 	// ---------------------- Weight Update and Predictions  ------------------------
 	// ------------------------------------------------------------------------------
@@ -541,10 +549,6 @@ void HTFE::learn(sys::ComputeSystem &cs) {
 		Float2 inputSizeMinusOneInv;
 		inputSizeMinusOneInv._x = 1.0f / (prevWidth - 1);
 		inputSizeMinusOneInv._y = 1.0f / (prevHeight - 1);
-
-		Int2 receptiveFieldRadius;
-		receptiveFieldRadius._x = _layerDescs[l]._receptiveFieldRadius;
-		receptiveFieldRadius._y = _layerDescs[l]._receptiveFieldRadius;
 
 		Int2 nextSize;
 		Int2 nextSizeMinusOne;
@@ -650,7 +654,7 @@ void HTFE::learn(sys::ComputeSystem &cs) {
 		_layerVisibleWeightUpdateKernel.setArg(index++, layerSize);
 		_layerVisibleWeightUpdateKernel.setArg(index++, layerSizeMinusOne);
 		_layerVisibleWeightUpdateKernel.setArg(index++, layerSizeMinusOneInv);
-		_layerVisibleWeightUpdateKernel.setArg(index++, _layerDescs[l]._feedForwardAlpha);
+		_layerVisibleWeightUpdateKernel.setArg(index++, _layerDescs[l]._reconstructionAlpha);
 
 		cs.getQueue().enqueueNDRangeKernel(_layerVisibleWeightUpdateKernel, cl::NullRange, cl::NDRange(prevWidth, prevHeight));
 
@@ -672,6 +676,7 @@ void HTFE::stepEnd() {
 		cl::Image2D temp2D;
 
 		std::swap(_layers[l]._visibleReconstruction, _layers[l]._visibleReconstructionPrev);
+		std::swap(_layers[l]._hiddenFeedBackActivations, _layers[l]._hiddenFeedBackActivationsPrev);
 		std::swap(_layers[l]._hiddenStatesFeedForward, _layers[l]._hiddenStatesFeedForwardPrev);
 		
 		temp2D = _layers[l]._hiddenStatesFeedBackPrevPrev;
@@ -695,11 +700,7 @@ void HTFE::clearMemory(sys::ComputeSystem &cs) {
 	// -------------------------------- Clear Memory --------------------------------
 	// ------------------------------------------------------------------------------
 
-	cl_uint4 clear;
-	clear.x = 0;
-	clear.y = 0;
-	clear.z = 0;
-	clear.w = 0;
+	cl_uint4 clear = {0, 0, 0, 0};
 
 	for (int l = 0; l < _layers.size(); l++) {
 		cl::size_t<3> origin;

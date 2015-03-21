@@ -1,9 +1,7 @@
 #pragma once
 
-#include <system/ComputeSystem.h>
-#include <system/ComputeProgram.h>
-
-#include <SFML/Graphics.hpp>
+#include "../system/ComputeSystem.h"
+#include "../system/ComputeProgram.h"
 
 #include <vector>
 #include <list>
@@ -13,70 +11,71 @@
 #include <memory>
 
 namespace htfe {
+	struct LayerDesc {
+		int _width, _height;
+
+		int _receptiveFieldRadius;
+		int _reconstructionRadius;
+		int _lateralConnectionRadius;
+		int _inhibitionRadius;
+		int _feedBackConnectionRadius;
+
+		float _sparsity;
+
+		float _dutyCycleDecay;
+		float _feedForwardAlpha;
+		float _lateralAlpha;
+		float _feedBackAlpha;
+		float _hiddenBiasAlpha;
+		float _reconstructionAlpha;
+		float _gamma;
+		float _lateralScalar;
+		float _minDerivative;
+
+		LayerDesc()
+			: _width(16), _height(16), _receptiveFieldRadius(3), _reconstructionRadius(3), _lateralConnectionRadius(3), _inhibitionRadius(3), _feedBackConnectionRadius(3),
+			_sparsity(2.01f / 49.0f), _dutyCycleDecay(0.01f),
+			_feedForwardAlpha(0.2f), _lateralAlpha(0.2f), _feedBackAlpha(0.2f), _hiddenBiasAlpha(0.1f), _reconstructionAlpha(0.2f),
+			_gamma(0.0f), _lateralScalar(0.1f), _minDerivative(0.05f)
+		{}
+	};
+
+	struct Layer {
+		cl::Image2D _hiddenFeedForwardActivations;
+		cl::Image2D _hiddenFeedBackActivations;
+		cl::Image2D _hiddenFeedBackActivationsPrev;
+
+		cl::Image2D _hiddenStatesFeedForward;
+		cl::Image2D _hiddenStatesFeedForwardPrev;
+
+		cl::Image2D _hiddenStatesFeedBack;
+		cl::Image2D _hiddenStatesFeedBackPrev;
+		cl::Image2D _hiddenStatesFeedBackPrevPrev;
+
+		cl::Image3D _feedForwardWeights;
+		cl::Image3D _feedForwardWeightsPrev;
+
+		cl::Image3D _reconstructionWeights;
+		cl::Image3D _reconstructionWeightsPrev;
+
+		cl::Image2D _visibleBiases;
+		cl::Image2D _visibleBiasesPrev;
+
+		cl::Image2D _hiddenBiases;
+		cl::Image2D _hiddenBiasesPrev;
+
+		cl::Image3D _lateralWeights;
+		cl::Image3D _lateralWeightsPrev;
+
+		cl::Image3D _feedBackWeights;
+		cl::Image3D _feedBackWeightsPrev;
+
+		cl::Image2D _visibleReconstruction;
+		cl::Image2D _visibleReconstructionPrev;
+	};
+		
 	class HTFE {
-	public:
-		struct LayerDesc {
-			int _width, _height;
-
-			int _receptiveFieldRadius;
-			int _reconstructionRadius;
-			int _lateralConnectionRadius;
-			int _inhibitionRadius;
-			int _feedBackConnectionRadius;
-
-			float _sparsity;
-
-			float _dutyCycleDecay;
-			float _feedForwardAlpha;
-			float _lateralAlpha;
-			float _feedBackAlpha;
-			float _hiddenBiasAlpha;
-			float _gamma;
-			float _lateralScalar;
-
-			LayerDesc()
-				: _width(16), _height(16), _receptiveFieldRadius(4), _reconstructionRadius(4), _lateralConnectionRadius(4), _inhibitionRadius(4), _feedBackConnectionRadius(4),
-				_sparsity(3.01f / 81.0f), _dutyCycleDecay(0.01f),
-				_feedForwardAlpha(0.1f), _lateralAlpha(0.05f), _feedBackAlpha(0.15f), _hiddenBiasAlpha(0.04f),
-				_gamma(0.0f), _lateralScalar(0.5f)
-			{}
-		};
-
 	private:
-		struct Layer {
-			cl::Image2D _hiddenFeedForwardActivations;
-			cl::Image2D _hiddenFeedBackActivations;
-			cl::Image2D _hiddenFeedBackActivationsPrev;
-
-			cl::Image2D _hiddenStatesFeedForward;
-			cl::Image2D _hiddenStatesFeedForwardPrev;
-
-			cl::Image2D _hiddenStatesFeedBack;
-			cl::Image2D _hiddenStatesFeedBackPrev;
-			cl::Image2D _hiddenStatesFeedBackPrevPrev;
-
-			cl::Image3D _feedForwardWeights;
-			cl::Image3D _feedForwardWeightsPrev;
-
-			cl::Image3D _reconstructionWeights;
-			cl::Image3D _reconstructionWeightsPrev;
-
-			cl::Image2D _visibleBiases;
-			cl::Image2D _visibleBiasesPrev;
-
-			cl::Image2D _hiddenBiases;
-			cl::Image2D _hiddenBiasesPrev;
-
-			cl::Image3D _lateralWeights;
-			cl::Image3D _lateralWeightsPrev;
-
-			cl::Image3D _feedBackWeights;
-			cl::Image3D _feedBackWeightsPrev;
-
-			cl::Image2D _visibleReconstruction;
-			cl::Image2D _visibleReconstructionPrev;
-		};
-
 		int _inputWidth, _inputHeight;
 
 		std::vector<LayerDesc> _layerDescs;
@@ -98,7 +97,7 @@ namespace htfe {
 		cl::Image2D _inputImagePrev;
 
 	public:
-		void createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, int inputWidth, int inputHeight, const std::vector<LayerDesc> &layerDescs, float minInitWeight, float maxInitWeight, std::mt19937 &generator);
+		void createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, int inputWidth, int inputHeight, const std::vector<LayerDesc> &layerDescs, float minInitWeight, float maxInitWeight);
 	
 		void activate(sys::ComputeSystem &cs);
 		void learn(sys::ComputeSystem &cs);

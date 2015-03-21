@@ -3,6 +3,8 @@
 #include <system/Uncopyable.h>
 #include <CL/cl.hpp>
 
+#define SYS_DEBUG
+
 #define SYS_ALLOW_CL_GL_CONTEXT 0
 
 namespace sys {
