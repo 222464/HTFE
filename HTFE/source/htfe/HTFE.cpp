@@ -124,6 +124,7 @@ void HTFE::createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, in
 		initializeLayerHiddenKernel.setArg(index++, initSeedHidden);
 		initializeLayerHiddenKernel.setArg(index++, _layerDescs[l]._sparsity);
 		initializeLayerHiddenKernel.setArg(index++, _layerDescs[l]._lateralScalar);
+		initializeLayerHiddenKernel.setArg(index++, _layerDescs[l]._feedBackScalar);
 		initializeLayerHiddenKernel.setArg(index++, minInitWeight);
 		initializeLayerHiddenKernel.setArg(index++, maxInitWeight);
 
@@ -658,7 +659,7 @@ void HTFE::learn(sys::ComputeSystem &cs) {
 
 		cs.getQueue().enqueueNDRangeKernel(_layerVisibleWeightUpdateKernel, cl::NullRange, cl::NDRange(prevWidth, prevHeight));
 
-		pPrevLayer = &_layers[l]._hiddenStatesFeedBack; // Or _hiddenStatesFeedBack ?
+		pPrevLayer = &_layers[l]._hiddenStatesFeedForward; // Or _hiddenStatesFeedBack ?
 		prevWidth = _layerDescs[l]._width;
 		prevHeight = _layerDescs[l]._height;
 
@@ -700,7 +701,7 @@ void HTFE::clearMemory(sys::ComputeSystem &cs) {
 	// -------------------------------- Clear Memory --------------------------------
 	// ------------------------------------------------------------------------------
 
-	cl_uint4 clear = {0, 0, 0, 0};
+	cl_uint4 clear = { 0, 0, 0, 0 };
 
 	for (int l = 0; l < _layers.size(); l++) {
 		cl::size_t<3> origin;
