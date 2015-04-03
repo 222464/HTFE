@@ -18,15 +18,21 @@ int main() {
 
 	std::vector<htfe::LayerDesc> layerDescs(3);
 
-	layerDescs[0]._width = 64;
-	layerDescs[0]._height = 64;
-	layerDescs[0]._reconstructionRadius = 12;
+	layerDescs[0]._spatialWidth = 32;
+	layerDescs[0]._spatialHeight = 32;
+	layerDescs[0]._temporalWidth = 64;
+	layerDescs[0]._temporalHeight = 64;
+	layerDescs[0]._reconstructionRadius = 8;
 
-	layerDescs[1]._width = 44;
-	layerDescs[1]._height = 44;
+	layerDescs[1]._spatialWidth = 22;
+	layerDescs[1]._spatialHeight = 22;
+	layerDescs[1]._temporalWidth = 44;
+	layerDescs[1]._temporalHeight = 44;
 
-	layerDescs[2]._width = 32;
-	layerDescs[2]._height = 32;
+	layerDescs[2]._spatialWidth = 16;
+	layerDescs[2]._spatialHeight = 16;
+	layerDescs[2]._temporalWidth = 32;
+	layerDescs[2]._temporalHeight = 32;
 
 	test.createRandom(cs, program, 4, 4, layerDescs, -0.1f, 0.1f);
 
@@ -54,7 +60,7 @@ int main() {
 			for (int e = 0; e < 16; e++)
 				test.setInput(e, sequence[s][e]);
 
-			test.activate(cs);
+			test.activate(cs, generator);
 			test.learn(cs);
 			test.stepEnd();
 		}
@@ -84,7 +90,7 @@ int main() {
 			totalCount++;
 		}
 
-		test.activate(cs);
+		test.activate(cs, generator);
 		test.stepEnd();
 
 		for (int e = 0; e < 16; e++) {
