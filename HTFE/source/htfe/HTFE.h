@@ -24,7 +24,9 @@ namespace htfe {
 		int _feedBackConnectionRadius;
 
 		float _spatialSparsity;
+		float _spatialLifetimeSparsity;
 		float _temporalSparsity;
+		float _temporalLifetimeSparsity;
 
 		float _dutyCycleDecay;
 
@@ -49,17 +51,19 @@ namespace htfe {
 
 		float _gaussianNoise;
 
-		float _minDerivative;
+		float _dominationFactor;
+		float _lifetimeSparsityCorrectionFactor;
+		float _boostIntensity;
 
 		LayerDesc()
 			: _spatialWidth(16), _spatialHeight(16), _temporalWidth(16), _temporalHeight(16),
-			_receptiveFieldRadius(5), _reconstructionRadius(6), _predictiveRadius(6), _lateralConnectionRadius(6), _spatialInhibitionRadius(4), _temporalInhibitionRadius(6), _feedBackConnectionRadius(6),
-			_spatialSparsity(2.01f / 81.0f), _temporalSparsity(2.01f / 81.0f), _dutyCycleDecay(0.01f),
-			_spatialAlpha(0.01f), _predictiveAlpha(0.01f), _lateralAlpha(0.005f), _feedBackAlpha(0.01f), _reconstructionAlpha(0.05f),
+			_receptiveFieldRadius(6), _reconstructionRadius(7), _predictiveRadius(6), _lateralConnectionRadius(7), _spatialInhibitionRadius(4), _temporalInhibitionRadius(4), _feedBackConnectionRadius(7),
+			_spatialSparsity(1.01f / 81.0f), _spatialLifetimeSparsity(1.01f / 81.0f), _temporalSparsity(1.01f / 81.0f), _temporalLifetimeSparsity(1.01f / 81.0f), _dutyCycleDecay(0.01f),
+			_spatialAlpha(0.05f), _predictiveAlpha(0.05f), _lateralAlpha(0.05f), _feedBackAlpha(0.05f), _reconstructionAlpha(0.1f),
 			_spatialLambda(0.5f), _temporalLambda(0.5f),
-			_spatialMomentum(0.5f), _predictiveMomentum(0.5f), _lateralMomentum(0.5f), _feedBackMomentum(0.5f), _reconstructionMomentum(0.5f),
-			_lateralScalar(0.01f), _feedBackScalar(0.01f), _blurKernelWidth(1.0f), _numBlurPasses(0), _gaussianNoise(0.05f),
-			_minDerivative(0.02f)
+			_spatialMomentum(0.0f), _predictiveMomentum(0.0f), _lateralMomentum(0.0f), _feedBackMomentum(0.0f), _reconstructionMomentum(0.0f),
+			_lateralScalar(0.05f), _feedBackScalar(0.5f), _blurKernelWidth(1.0f), _numBlurPasses(0), _gaussianNoise(0.05f),
+			_dominationFactor(1.0f), _lifetimeSparsityCorrectionFactor(0.0f), _boostIntensity(5.0f)
 		{}
 	};
 
@@ -88,18 +92,8 @@ namespace htfe {
 		cl::Image3D _feedBackWeights;
 		cl::Image3D _feedBackWeightsPrev;
 
-		cl::Image2D _spatialReconstruction;
-		cl::Image2D _spatialReconstructionPrev;
-		cl::Image2D _temporalReconstruction;
-		cl::Image2D _temporalReconstructionPrev;
-		cl::Image2D _nextTemporalReconstruction;
-		cl::Image2D _nextTemporalReconstructionPrev;
-
 		cl::Image2D _predictedSpatial;
 		cl::Image2D _predictedSpatialPrev;
-
-		cl::Image2D _inputReconstruction;
-		cl::Image2D _predictedInputReconstruction;
 	};
 
 	class HTFE {
@@ -109,12 +103,20 @@ namespace htfe {
 		std::vector<LayerDesc> _layerDescs;
 		std::vector<Layer> _layers;
 
+		cl::Image3D _inputReconstructionWeights;
+		cl::Image3D _inputReconstructionWeightsPrev;
+
+		cl::Image2D _reconstructedInput;
+		cl::Image2D _reconstructedPredictedInput;
+
+		int _inputReconstructionRadius;
+
 		cl::Kernel _layerInhibitKernel;
 		cl::Kernel _layerHiddenStatesSpatialActivateKernel;
 		cl::Kernel _layerHiddenStatesTemporalActivateKernel;
 		cl::Kernel _layerHiddenStatesTemporalActivateLastKernel;
-		cl::Kernel _layerInputReconstructKernel;
-		cl::Kernel _layerInputReconstructLinearKernel;
+		cl::Kernel _inputReconstructKernel;
+		cl::Kernel _inputReconstructionWeightUpdateKernel;
 		cl::Kernel _layerSpatialReconstructKernel;
 		cl::Kernel _layerTemporalReconstructKernel;
 		cl::Kernel _layerNextTemporalReconstructKernel;
@@ -135,7 +137,13 @@ namespace htfe {
 		void gaussianBlur(sys::ComputeSystem &cs, cl::Image2D &source, cl::Image2D &ping, cl::Image2D &pong, int imageSizeX, int imageSizeY, int passes, float kernelWidth);
 
 	public:
-		void createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, int inputWidth, int inputHeight, const std::vector<LayerDesc> &layerDescs, float minInitWeight, float maxInitWeight);
+		float _inputReconstructionAlpha;
+
+		HTFE()
+			: _inputReconstructionAlpha(0.1f)
+		{}
+
+		void createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, int inputWidth, int inputHeight, int reconstructionRadius, const std::vector<LayerDesc> &layerDescs, float minInitWeight, float maxInitWeight);
 
 		void activate(sys::ComputeSystem &cs, std::mt19937 &generator);
 		void learn(sys::ComputeSystem &cs);

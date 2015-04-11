@@ -16,25 +16,30 @@ int main() {
 
 	htfe::HTFE test;
 
-	std::vector<htfe::LayerDesc> layerDescs(3);
+	std::vector<htfe::LayerDesc> layerDescs(4);
 
-	layerDescs[0]._spatialWidth = 32;
-	layerDescs[0]._spatialHeight = 32;
-	layerDescs[0]._temporalWidth = 64;
-	layerDescs[0]._temporalHeight = 64;
-	layerDescs[0]._reconstructionRadius = 8;
+	layerDescs[0]._spatialWidth = 64;
+	layerDescs[0]._spatialHeight = 64;
+	layerDescs[0]._temporalWidth = 128;
+	layerDescs[0]._temporalHeight = 128;
+	layerDescs[0]._reconstructionRadius = 9;
 
-	layerDescs[1]._spatialWidth = 22;
-	layerDescs[1]._spatialHeight = 22;
-	layerDescs[1]._temporalWidth = 44;
-	layerDescs[1]._temporalHeight = 44;
+	layerDescs[1]._spatialWidth = 44;
+	layerDescs[1]._spatialHeight = 44;
+	layerDescs[1]._temporalWidth = 88;
+	layerDescs[1]._temporalHeight = 88;
 
-	layerDescs[2]._spatialWidth = 16;
-	layerDescs[2]._spatialHeight = 16;
-	layerDescs[2]._temporalWidth = 32;
-	layerDescs[2]._temporalHeight = 32;
+	layerDescs[2]._spatialWidth = 32;
+	layerDescs[2]._spatialHeight = 32;
+	layerDescs[2]._temporalWidth = 64;
+	layerDescs[2]._temporalHeight = 64;
 
-	test.createRandom(cs, program, 4, 4, layerDescs, -0.1f, 0.1f);
+	layerDescs[3]._spatialWidth = 22;
+	layerDescs[3]._spatialHeight = 22;
+	layerDescs[3]._temporalWidth = 44;
+	layerDescs[3]._temporalHeight = 44;
+
+	test.createRandom(cs, program, 4, 4, 6, layerDescs, -0.01f, 1.01f);
 
 	float sequence[16][16] = {
 		{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
@@ -49,10 +54,10 @@ int main() {
 		{ 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
 		{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
 		{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-		{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+		{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f },
 		{ 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
 		{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-		{ 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
+		{ 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
 	};
 
 	for (int t = 0; t < 64; t++) {
