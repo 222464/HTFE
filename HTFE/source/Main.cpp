@@ -60,7 +60,7 @@ int main() {
 		{ 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
 	};
 
-	for (int t = 0; t < 64; t++) {
+	for (int t = 0; t < 32; t++) {
 		for (int s = 0; s < 16; s++) {
 			for (int e = 0; e < 16; e++)
 				test.setInput(e, sequence[s][e]);

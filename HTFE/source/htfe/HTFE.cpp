@@ -75,10 +75,14 @@ void HTFE::createRandom(sys::ComputeSystem &cs, sys::ComputeProgram &program, in
 		int numFeedBackWeights = std::pow(_layerDescs[l]._feedBackConnectionRadius * 2 + 1, 2);
 
 		_layers[l]._hiddenActivationsSpatial = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_FLOAT), _layerDescs[l]._spatialWidth, _layerDescs[l]._spatialHeight);
+		_layers[l]._hiddenActivationsSpatialPrev = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_FLOAT), _layerDescs[l]._spatialWidth, _layerDescs[l]._spatialHeight);
+
 		_layers[l]._hiddenStatesSpatial = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_RG, CL_FLOAT), _layerDescs[l]._spatialWidth, _layerDescs[l]._spatialHeight);
 		_layers[l]._hiddenStatesSpatialPrev = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_RG, CL_FLOAT), _layerDescs[l]._spatialWidth, _layerDescs[l]._spatialHeight);
 
 		_layers[l]._hiddenActivationsTemporal = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_FLOAT), _layerDescs[l]._temporalWidth, _layerDescs[l]._temporalHeight);
+		_layers[l]._hiddenActivationsTemporalPrev = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_FLOAT), _layerDescs[l]._temporalWidth, _layerDescs[l]._temporalHeight);
+		
 		_layers[l]._hiddenStatesTemporal = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_RG, CL_FLOAT), _layerDescs[l]._temporalWidth, _layerDescs[l]._temporalHeight);
 		_layers[l]._hiddenStatesTemporalPrev = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_RG, CL_FLOAT), _layerDescs[l]._temporalWidth, _layerDescs[l]._temporalHeight);
 		_layers[l]._hiddenStatesTemporalPrevPrev = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_RG, CL_FLOAT), _layerDescs[l]._temporalWidth, _layerDescs[l]._temporalHeight);
@@ -701,6 +705,7 @@ void HTFE::learn(sys::ComputeSystem &cs) {
 
 		_layerUpdateSpatialWeightsKernel.setArg(index++, *pPrevLayer);
 		_layerUpdateSpatialWeightsKernel.setArg(index++, _layers[l]._hiddenActivationsSpatial);
+		_layerUpdateSpatialWeightsKernel.setArg(index++, _layers[l]._hiddenActivationsSpatialPrev);
 		_layerUpdateSpatialWeightsKernel.setArg(index++, _layers[l]._hiddenStatesSpatial);
 		_layerUpdateSpatialWeightsKernel.setArg(index++, _layers[l]._hiddenStatesSpatialPrev);
 		_layerUpdateSpatialWeightsKernel.setArg(index++, _layers[l]._spatialWeightsPrev);
@@ -738,6 +743,7 @@ void HTFE::learn(sys::ComputeSystem &cs) {
 		if (l == _layers.size() - 1) {
 			_layerUpdateTemporalWeightsLastKernel.setArg(index++, _layers[l]._hiddenStatesSpatial);
 			_layerUpdateTemporalWeightsLastKernel.setArg(index++, _layers[l]._hiddenActivationsTemporal);
+			_layerUpdateTemporalWeightsLastKernel.setArg(index++, _layers[l]._hiddenActivationsTemporalPrev);
 			_layerUpdateTemporalWeightsLastKernel.setArg(index++, _layers[l]._hiddenStatesTemporal);
 			_layerUpdateTemporalWeightsLastKernel.setArg(index++, _layers[l]._hiddenStatesTemporalPrev);
 			_layerUpdateTemporalWeightsLastKernel.setArg(index++, _layers[l]._predictiveWeightsPrev);
@@ -766,6 +772,7 @@ void HTFE::learn(sys::ComputeSystem &cs) {
 		else {
 			_layerUpdateTemporalWeightsKernel.setArg(index++, _layers[l]._hiddenStatesSpatial);
 			_layerUpdateTemporalWeightsKernel.setArg(index++, _layers[l]._hiddenActivationsTemporal);
+			_layerUpdateTemporalWeightsKernel.setArg(index++, _layers[l]._hiddenActivationsTemporalPrev);
 			_layerUpdateTemporalWeightsKernel.setArg(index++, _layers[l]._hiddenStatesTemporal);
 			_layerUpdateTemporalWeightsKernel.setArg(index++, _layers[l]._hiddenStatesTemporalPrev);
 			_layerUpdateTemporalWeightsKernel.setArg(index++, _layers[l + 1]._hiddenStatesTemporal);
@@ -857,7 +864,11 @@ void HTFE::stepEnd() {
 	for (int l = 0; l < _layers.size(); l++) {
 		cl::Image2D temp2D;
 
+		std::swap(_layers[l]._hiddenActivationsSpatial, _layers[l]._hiddenActivationsSpatialPrev);
+
 		std::swap(_layers[l]._hiddenStatesSpatial, _layers[l]._hiddenStatesSpatialPrev);
+
+		std::swap(_layers[l]._hiddenActivationsTemporal, _layers[l]._hiddenActivationsTemporalPrev);
 
 		temp2D = _layers[l]._hiddenStatesTemporalPrevPrev;
 		_layers[l]._hiddenStatesTemporalPrevPrev = _layers[l]._hiddenStatesTemporalPrev;
